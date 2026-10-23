@@ -9,6 +9,12 @@
 
 /*#define DEBUG*/
 
+/*
+
+ ** Auteur : COULIBALY Sidiné
+
+ */
+
 typedef struct pion_s
 {
     int couleur;
@@ -205,7 +211,7 @@ void f_affiche_plateau(Pion *plateau)
 #endif
 }
 
-int f_gagnant()
+int f_gagnant(Pion *plateauDeJeu)
 {
     int i, j, somme1 = 0, somme2 = 0;
 
@@ -249,7 +255,7 @@ int f_gagnant()
  * 	pour laquelle la bataille a lieu
  * Renvoie le couleur du gagnant
  * */
-int f_bataille(int l, int c)
+int f_bataille(int l, int c, Pion *plateauDeJeu)
 {
     int i, j, mini, maxi, minj, maxj;
     int somme = 0;
@@ -305,7 +311,7 @@ int f_test_mouvement(Pion *plateau, int l1, int c1, int l2, int c2, int couleur)
         return 1;
 
     if (l1 - l2 > 1 || l2 - l1 > 1 || c1 - c2 > 1 || c2 - c1 > 1 || (l1 == l2 && c1 == c2))
-        retour = 1;
+        return 1;
 #ifdef DEBUG
     printf("dbg: exiting %s %d\n", __FUNCTION__, __LINE__);
 #endif
@@ -340,7 +346,7 @@ int f_bouge_piece(Pion *plateau, int l1, int c1, int l2, int c2, int couleur)
     }
     else
     {
-        gagnant = f_bataille(l2, c2);
+        gagnant = f_bataille(l2, c2, plateau);
         /* victoire */
         if (gagnant == couleur)
         {
@@ -399,6 +405,31 @@ int f_valeur(Pion *jeu, int joueur)
     return valeur;
 }
 
+// Calcul de la distance entre la piece la plus avancée dans chaque colonne et le fond
+int f_distancePions(Pion *jeu, int joueur)
+{
+    int i, j, dist_ligne, dist = 0;
+
+    for (i = 0; i < NB_COLONNES; ++i)
+    {
+        dist_ligne = NB_LIGNES;
+        for (j = 0; j < NB_LIGNES; ++j)
+        {
+            if (jeu[j * NB_COLONNES + i].couleur == joueur && joueur == -1)
+            {
+                dist_ligne = NB_LIGNES - (j + 1);
+            }
+            else if (jeu[j * NB_COLONNES + i].couleur == joueur && joueur == 1)
+            {
+                dist_ligne = j;
+            }
+        }
+
+        dist += dist_ligne;
+    }
+    return dist;
+}
+
 // fonction d'évaluation
 int f_eval(Pion *jeu, int joueur)
 {
@@ -436,16 +467,16 @@ Pion *f_raz_plateau()
     return jeu;
 }
 
-// Fonction min trouve le minimum des noeuds fils
-? ? ? f_min(? ? ?){
-          /** A remplir **/
-      }
+// // Fonction min trouve le minimum des noeuds fils
+// ? ? ? f_min(? ? ?){
+//           /** A remplir **/
+//       }
 
-// Fonction max trouve le maximum des noeuds fils
-? ? ? f_max(? ? ?)
-{
-    /** A remplir **/
-}
+// // Fonction max trouve le maximum des noeuds fils
+// ? ? ? f_max(? ? ?)
+// {
+//     /** A remplir **/
+// }
 
 /**
  * Calcule et joue le meilleur cout
@@ -532,7 +563,7 @@ int main(int argv, char *argc[])
             f_IA(joueur);
         }
 
-        if ((ret = f_gagnant()) != 0)
+        if ((ret = f_gagnant(plateauDeJeu)) != 0)
         {
             switch (ret)
             {
