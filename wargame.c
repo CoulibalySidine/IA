@@ -26,6 +26,21 @@ Pion *plateauDeJeu;
 void f_affiche_plateau(Pion *plateau);
 int f_convert_char2int(char c);
 char f_convert_int2char(int i);
+Pion *f_init_plateau();
+int f_gagnant(Pion *plateauDeJeu);
+int f_bataille(int l, int c, Pion *plateauDeJeu);
+int f_test_mouvement(Pion *plateau, int l1, int c1, int l2, int c2, int couleur);
+int f_bouge_piece(Pion *plateau, int l1, int c1, int l2, int c2, int couleur);
+int f_nbPions(Pion *jeu, int joueur);
+int f_valeur(Pion *jeu, int joueur);
+int f_distancePions(Pion *jeu, int joueur);
+int f_eval(Pion *jeu, int joueur);
+void f_copie_plateau(Pion *source, Pion *destination);
+Pion *f_raz_plateau();
+int f_min(Pion *noeud, int profondeur, int couleurIA);
+int f_max(Pion *noeud, int profondeur, int couleurIA);
+void f_humain(int joueur);
+void f_IA(int joueur);
 
 int f_convert_char2int(char c)
 {
@@ -417,11 +432,17 @@ int f_distancePions(Pion *jeu, int joueur)
         {
             if (jeu[j * NB_COLONNES + i].couleur == joueur && joueur == -1)
             {
-                dist_ligne = NB_LIGNES - (j + 1);
+                if (NB_LIGNES - (j + 1) < dist_ligne)
+                {
+                    dist_ligne = NB_LIGNES - (j + 1);
+                }
             }
             else if (jeu[j * NB_COLONNES + i].couleur == joueur && joueur == 1)
             {
-                dist_ligne = j;
+                if (j < dist_ligne)
+                {
+                    dist_ligne = (j);
+                }
             }
         }
 
@@ -433,7 +454,20 @@ int f_distancePions(Pion *jeu, int joueur)
 // fonction d'évaluation
 int f_eval(Pion *jeu, int joueur)
 {
-    /** A vous de trouver une fonction efficace **/
+    int critere = 0;
+    int nbpionsjoueurx = 0;
+    int nbpionsjoueuro = 0;
+    int dist_joueur_x = 0;
+    int dist_joueur_o = 0;
+
+    nbpionsjoueurx = f_nbPions(jeu, joueur);
+    nbpionsjoueuro = f_nbPions(jeu, -joueur);
+
+    dist_joueur_x = f_distancePions(jeu, joueur);
+    dist_joueur_o = f_distancePions(jeu, -joueur);
+
+    critere = (dist_joueur_o - dist_joueur_x) * 5 + (nbpionsjoueurx - nbpionsjoueuro) * 10;
+    return critere;
 }
 
 // copie du plateau
@@ -468,15 +502,119 @@ Pion *f_raz_plateau()
 }
 
 // // Fonction min trouve le minimum des noeuds fils
-// ? ? ? f_min(? ? ?){
-//           /** A remplir **/
-//       }
+int f_min(Pion *noeud, int profondeur, int couleurIA)
+{
+    int gagnant = f_gagnant(noeud);
+    if (gagnant == couleurIA)
+    {
+        return INFINI;
+    }
+    else if (gagnant == -couleurIA)
+    {
+        return -INFINI;
+    }
+    else
+    {
+        if (profondeur == 0)
+        {
+            return f_eval(noeud, couleurIA);
+        }
+        else
+        {
+            int value = INFINI;
+            for (int i = 0; i < NB_LIGNES; i++)
+            {
+                for (int j = 0; j < NB_COLONNES; j++)
+                {
+                    if (noeud[i * NB_COLONNES + j].couleur == -couleurIA)
+                    {
+                        for (int dl = -1; dl < 2; dl++)
+                        {
+                            for (int dc = -1; dc < 2; dc++)
+                            {
+                                if (dl == 0 && dc == 0)
+                                {
+                                    continue;
+                                }
+                                if (f_test_mouvement(noeud, i, j, i + dl, j + dc, -couleurIA) == 0)
+                                {
+                                    Pion *new_plateau = f_raz_plateau();
+                                    f_copie_plateau(noeud, new_plateau);
+                                    f_bouge_piece(new_plateau, i, j, i + dl, j + dc, -couleurIA);
+                                    int value2 = f_min(new_plateau, profondeur - 1, couleurIA);
+                                    if (value2 < value)
+                                    {
+                                        value = value2;
+                                    }
+                                    free(new_plateau);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return value;
+        }
+    }
+}
 
 // // Fonction max trouve le maximum des noeuds fils
-// ? ? ? f_max(? ? ?)
-// {
-//     /** A remplir **/
-// }
+// // Fonction min trouve le minimum des noeuds fils
+int f_max(Pion *noeud, int profondeur, int couleurIA)
+{
+    int gagnant = f_gagnant(noeud);
+    if (gagnant == couleurIA)
+    {
+        return INFINI;
+    }
+    else if (gagnant == -couleurIA)
+    {
+        return -INFINI;
+    }
+    else
+    {
+        if (profondeur == 0)
+        {
+            return f_eval(noeud, couleurIA);
+        }
+        else
+        {
+            int value = -INFINI;
+            for (int i = 0; i < NB_LIGNES; i++)
+            {
+                for (int j = 0; j < NB_COLONNES; j++)
+                {
+                    if (noeud[i * NB_COLONNES + j].couleur == couleurIA)
+                    {
+                        for (int dl = -1; dl < 2; dl++)
+                        {
+                            for (int dc = -1; dc < 2; dc++)
+                            {
+                                if (dl == 0 && dc == 0)
+                                {
+                                    continue;
+                                }
+                                if (f_test_mouvement(noeud, i, j, i + dl, j + dc, couleurIA) == 0)
+                                {
+                                    Pion *new_plateau = f_raz_plateau();
+                                    f_copie_plateau(noeud, new_plateau);
+                                    f_bouge_piece(new_plateau, i, j, i + dl, j + dc, couleurIA);
+                                    int value2 = f_max(new_plateau, profondeur - 1, couleurIA);
+                                    if (value2 > value)
+                                    {
+                                        value = value2;
+                                    }
+                                    free(new_plateau);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return value;
+        }
+    }
+}
 
 /**
  * Calcule et joue le meilleur cout
@@ -547,6 +685,8 @@ int main(int argv, char *argc[])
     while (!fin)
     {
         f_affiche_plateau(plateauDeJeu);
+        printf("Score Xc : %d\n ", f_eval(plateauDeJeu, 1));
+        printf("Score O : %d\n", f_eval(plateauDeJeu, -1));
         if (mode == 1)
         {
             if (joueur > 0)
