@@ -6,6 +6,8 @@
 #define NB_LIGNES 10
 #define NB_COLONNES 10
 #define INFINI 10000
+#define PROFONDEUR 3
+#define MAX_TOURS 400
 
 /*#define DEBUG*/
 
@@ -22,6 +24,8 @@ typedef struct pion_s
 } Pion;
 
 Pion *plateauDeJeu;
+int nbNoeuds;
+int nbTours;
 
 void f_affiche_plateau(Pion *plateau);
 int f_convert_char2int(char c);
@@ -504,14 +508,15 @@ Pion *f_raz_plateau()
 // // Fonction min trouve le minimum des noeuds fils
 int f_min(Pion *noeud, int profondeur, int couleurIA)
 {
+    nbNoeuds++;
     int gagnant = f_gagnant(noeud);
     if (gagnant == couleurIA)
     {
-        return INFINI;
+        return INFINI + profondeur;
     }
     else if (gagnant == -couleurIA)
     {
-        return -INFINI;
+        return -INFINI - profondeur;
     }
     else
     {
@@ -521,7 +526,7 @@ int f_min(Pion *noeud, int profondeur, int couleurIA)
         }
         else
         {
-            int value = INFINI;
+            int value = INFINI + 10 * PROFONDEUR;
             for (int i = 0; i < NB_LIGNES; i++)
             {
                 for (int j = 0; j < NB_COLONNES; j++)
@@ -541,7 +546,7 @@ int f_min(Pion *noeud, int profondeur, int couleurIA)
                                     Pion *new_plateau = f_raz_plateau();
                                     f_copie_plateau(noeud, new_plateau);
                                     f_bouge_piece(new_plateau, i, j, i + dl, j + dc, -couleurIA);
-                                    int value2 = f_min(new_plateau, profondeur - 1, couleurIA);
+                                    int value2 = f_max(new_plateau, profondeur - 1, couleurIA);
                                     if (value2 < value)
                                     {
                                         value = value2;
@@ -562,14 +567,15 @@ int f_min(Pion *noeud, int profondeur, int couleurIA)
 // // Fonction min trouve le minimum des noeuds fils
 int f_max(Pion *noeud, int profondeur, int couleurIA)
 {
+    nbNoeuds++;
     int gagnant = f_gagnant(noeud);
     if (gagnant == couleurIA)
     {
-        return INFINI;
+        return INFINI + profondeur;
     }
     else if (gagnant == -couleurIA)
     {
-        return -INFINI;
+        return -INFINI - profondeur;
     }
     else
     {
@@ -579,7 +585,7 @@ int f_max(Pion *noeud, int profondeur, int couleurIA)
         }
         else
         {
-            int value = -INFINI;
+            int value = -INFINI - 10 * PROFONDEUR;
             for (int i = 0; i < NB_LIGNES; i++)
             {
                 for (int j = 0; j < NB_COLONNES; j++)
@@ -599,7 +605,7 @@ int f_max(Pion *noeud, int profondeur, int couleurIA)
                                     Pion *new_plateau = f_raz_plateau();
                                     f_copie_plateau(noeud, new_plateau);
                                     f_bouge_piece(new_plateau, i, j, i + dl, j + dc, couleurIA);
-                                    int value2 = f_max(new_plateau, profondeur - 1, couleurIA);
+                                    int value2 = f_min(new_plateau, profondeur - 1, couleurIA);
                                     if (value2 > value)
                                     {
                                         value = value2;
@@ -624,8 +630,58 @@ void f_IA(int joueur)
 #ifdef DEBUG
     printf("dbg: entering %s %d\n", __FUNCTION__, __LINE__);
 #endif
+    int i_origine = -1;
+    int j_origine = -1;
+    int i_final = -1;
+    int j_final = -1;
+    int value = -INFINI - 10 * PROFONDEUR;
+    nbNoeuds = 0;
+    for (int i = 0; i < NB_LIGNES; i++)
+    {
+        for (int j = 0; j < NB_COLONNES; j++)
+        {
+            if (plateauDeJeu[i * NB_COLONNES + j].couleur == joueur)
+            {
+                for (int dl = -1; dl < 2; dl++)
+                {
+                    for (int dc = -1; dc < 2; dc++)
+                    {
+                        if (dl == 0 && dc == 0)
+                        {
+                            continue;
+                        }
 
-    /** A remplir **/
+                        if (f_test_mouvement(plateauDeJeu, i, j, i + dl, j + dc, joueur) == 0)
+                        {
+                            Pion *new_plateau = f_raz_plateau();
+                            f_copie_plateau(plateauDeJeu, new_plateau);
+                            f_bouge_piece(new_plateau, i, j, i + dl, j + dc, joueur);
+                            int value2 = f_min(new_plateau, PROFONDEUR - 1, joueur);
+                            if (value2 >= value)
+                            {
+                                value = value2;
+                                i_origine = i;
+                                j_origine = j;
+                                i_final = i + dl;
+                                j_final = j + dc;
+                            }
+                            free(new_plateau);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (i_origine == -1)
+    {
+        printf("ERREUR d'origine\n");
+    }
+    else
+    {
+        f_bouge_piece(plateauDeJeu, i_origine, j_origine, i_final, j_final, joueur);
+        printf("%c%d%c%d \n", f_convert_int2char(j_origine), i_origine, f_convert_int2char(j_final), i_final);
+    }
+    printf("Nombre de noeuds : %d \n", nbNoeuds);
 
 #ifdef DEBUG
     printf("dbg: exiting %s %d\n", __FUNCTION__, __LINE__);
@@ -685,8 +741,10 @@ int main(int argv, char *argc[])
     while (!fin)
     {
         f_affiche_plateau(plateauDeJeu);
-        printf("Score Xc : %d\n ", f_eval(plateauDeJeu, 1));
+        printf("Score X : %d\n ", f_eval(plateauDeJeu, 1));
         printf("Score O : %d\n", f_eval(plateauDeJeu, -1));
+        nbTours++;
+        printf("Nombre de tours : %d\n", nbTours);
         if (mode == 1)
         {
             if (joueur > 0)
@@ -703,7 +761,7 @@ int main(int argv, char *argc[])
             f_IA(joueur);
         }
 
-        if ((ret = f_gagnant(plateauDeJeu)) != 0)
+        if ((ret = f_gagnant(plateauDeJeu)) != 0 || nbTours == MAX_TOURS)
         {
             switch (ret)
             {
@@ -718,6 +776,8 @@ int main(int argv, char *argc[])
                 fin = 1;
                 break;
             }
+            printf("Match nul");
+            break;
         }
         joueur = -joueur;
     }
