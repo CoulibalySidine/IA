@@ -2,11 +2,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #define NB_LIGNES 10
 #define NB_COLONNES 10
 #define INFINI 10000
-#define PROFONDEUR 3
+#define PROFONDEUR 1
 #define MAX_TOURS 400
 
 /*#define DEBUG*/
@@ -25,7 +26,12 @@ typedef struct pion_s
 
 Pion *plateauDeJeu;
 int nbNoeuds;
+double nbNoeudsTotal;
 int nbTours;
+double appelIA;
+double tempsExecutionTotal;
+double tempsMoyen;
+double noeudsMoyen;
 
 void f_affiche_plateau(Pion *plateau);
 int f_convert_char2int(char c);
@@ -41,8 +47,10 @@ int f_distancePions(Pion *jeu, int joueur);
 int f_eval(Pion *jeu, int joueur);
 void f_copie_plateau(Pion *source, Pion *destination);
 Pion *f_raz_plateau();
-int f_min(Pion *noeud, int profondeur, int couleurIA);
-int f_max(Pion *noeud, int profondeur, int couleurIA);
+int f_min(Pion *noeud, int profondeur, int couleurIA,
+          int alpha, int beta);
+int f_max(Pion *noeud, int profondeur, int couleurIA,
+          int alpha, int beta);
 void f_humain(int joueur);
 void f_IA(int joueur);
 
@@ -506,7 +514,7 @@ Pion *f_raz_plateau()
 }
 
 // // Fonction min trouve le minimum des noeuds fils
-int f_min(Pion *noeud, int profondeur, int couleurIA)
+int f_min(Pion *noeud, int profondeur, int couleurIA, int alpha, int beta)
 {
     nbNoeuds++;
     int gagnant = f_gagnant(noeud);
@@ -546,12 +554,20 @@ int f_min(Pion *noeud, int profondeur, int couleurIA)
                                     Pion *new_plateau = f_raz_plateau();
                                     f_copie_plateau(noeud, new_plateau);
                                     f_bouge_piece(new_plateau, i, j, i + dl, j + dc, -couleurIA);
-                                    int value2 = f_max(new_plateau, profondeur - 1, couleurIA);
+                                    int value2 = f_max(new_plateau, profondeur - 1, couleurIA, alpha, beta);
                                     if (value2 < value)
                                     {
                                         value = value2;
                                     }
+                                    if (value < beta)
+                                    {
+                                        beta = value;
+                                    }
                                     free(new_plateau);
+                                    if (alpha > beta)
+                                    {
+                                        return value;
+                                    }
                                 }
                             }
                         }
@@ -565,7 +581,7 @@ int f_min(Pion *noeud, int profondeur, int couleurIA)
 
 // // Fonction max trouve le maximum des noeuds fils
 // // Fonction min trouve le minimum des noeuds fils
-int f_max(Pion *noeud, int profondeur, int couleurIA)
+int f_max(Pion *noeud, int profondeur, int couleurIA, int alpha, int beta)
 {
     nbNoeuds++;
     int gagnant = f_gagnant(noeud);
@@ -605,12 +621,22 @@ int f_max(Pion *noeud, int profondeur, int couleurIA)
                                     Pion *new_plateau = f_raz_plateau();
                                     f_copie_plateau(noeud, new_plateau);
                                     f_bouge_piece(new_plateau, i, j, i + dl, j + dc, couleurIA);
-                                    int value2 = f_min(new_plateau, profondeur - 1, couleurIA);
+                                    int value2 = f_min(new_plateau, profondeur - 1, couleurIA, alpha, beta);
                                     if (value2 > value)
                                     {
                                         value = value2;
                                     }
+                                    if (value > alpha)
+                                    {
+
+                                        alpha = value;
+                                    }
+
                                     free(new_plateau);
+                                    if (alpha > beta)
+                                    {
+                                        return value;
+                                    }
                                 }
                             }
                         }
@@ -635,7 +661,16 @@ void f_IA(int joueur)
     int i_final = -1;
     int j_final = -1;
     int value = -INFINI - 10 * PROFONDEUR;
+    int alpha = -INFINI - 10 * PROFONDEUR;
+    int beta = INFINI + 10 * PROFONDEUR;
+
     nbNoeuds = 0;
+
+    clock_t debut, fin;
+    double temps_execution;
+
+    debut = clock();
+
     for (int i = 0; i < NB_LIGNES; i++)
     {
         for (int j = 0; j < NB_COLONNES; j++)
@@ -656,7 +691,7 @@ void f_IA(int joueur)
                             Pion *new_plateau = f_raz_plateau();
                             f_copie_plateau(plateauDeJeu, new_plateau);
                             f_bouge_piece(new_plateau, i, j, i + dl, j + dc, joueur);
-                            int value2 = f_min(new_plateau, PROFONDEUR - 1, joueur);
+                            int value2 = f_min(new_plateau, PROFONDEUR - 1, joueur, alpha, beta);
                             if (value2 >= value)
                             {
                                 value = value2;
@@ -665,6 +700,11 @@ void f_IA(int joueur)
                                 i_final = i + dl;
                                 j_final = j + dc;
                             }
+                            if (value > alpha)
+                            {
+
+                                alpha = value;
+                            }
                             free(new_plateau);
                         }
                     }
@@ -672,6 +712,11 @@ void f_IA(int joueur)
             }
         }
     }
+    fin = clock();
+
+    temps_execution = (double)(fin - debut) / CLOCKS_PER_SEC;
+    tempsExecutionTotal += temps_execution;
+
     if (i_origine == -1)
     {
         printf("ERREUR d'origine\n");
@@ -682,6 +727,11 @@ void f_IA(int joueur)
         printf("%c%d%c%d \n", f_convert_int2char(j_origine), i_origine, f_convert_int2char(j_final), i_final);
     }
     printf("Nombre de noeuds : %d \n", nbNoeuds);
+
+    printf("Temps d'execution de f_IA : %.6f secondes\n", temps_execution);
+    nbNoeudsTotal += nbNoeuds;
+    appelIA++;
+    printf("Nombre Total de noeuds : %.6f\n", nbNoeudsTotal);
 
 #ifdef DEBUG
     printf("dbg: exiting %s %d\n", __FUNCTION__, __LINE__);
@@ -751,6 +801,7 @@ int main(int argv, char *argc[])
                 f_humain(joueur);
             else
                 f_IA(joueur);
+            printf("Nombre d'appel à l'IA : %.6f \n", appelIA);
         }
         else if (mode == 2)
         {
@@ -759,6 +810,8 @@ int main(int argv, char *argc[])
         else
         {
             f_IA(joueur);
+
+            printf("Nombre d'appel à l'IA : %.6f\n", appelIA);
         }
 
         if ((ret = f_gagnant(plateauDeJeu)) != 0 || nbTours == MAX_TOURS)
@@ -774,12 +827,22 @@ int main(int argv, char *argc[])
                 f_affiche_plateau(plateauDeJeu);
                 printf("joueur o gagne!\n");
                 fin = 1;
+
+                break;
+            default:
+                printf("Match nul\n");
+                fin = 1;
                 break;
             }
-            printf("Match nul");
-            break;
         }
         joueur = -joueur;
+    }
+    if (appelIA > 0)
+    {
+        tempsMoyen = tempsExecutionTotal / appelIA;
+        noeudsMoyen = nbNoeudsTotal / appelIA;
+        printf("Temps moyen : %.9f\n", tempsMoyen);
+        printf("Noeud moyen :%.9f\n", noeudsMoyen);
     }
 
 #ifdef DEBUG
